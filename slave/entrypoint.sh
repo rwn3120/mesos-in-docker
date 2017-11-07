@@ -3,13 +3,29 @@
 function out() { echo -e "\e[32m${@}\e[39m"; }
 function err() { echo -e "\e[31m${@}\e[39m" 1>&2; }
 
+if [ "${SPARK_IMAGE}" == "" ]; then
+	err "SPARK_IMAGE is not defined!"
+	exit 1
+fi;
+
+if [ "${SPARK_IMAGE_TAR}" == "" ]; then
+	err "SPARK_IMAGE_TAR is not defined!"
+	exit 2
+fi
+
 # shared files
-HOSTS_CONF="/shared/hosts.conf"
-MESOS_NAME_CONF="/shared/mesos_name.conf"
-MESOS_ZOO_CONF="/shared/mesos_zoo.conf"
-MESOS_QUORUM_CONF="/shared/mesos_quorum.conf"
-SPARK_IMAGE="mesosphere/spark:2.0.1-2.2.0-1-hadoop-2.6"
-SPARK_IMAGE_TAR="/shared/$(basename "${SPARK_IMAGE}").tar"
+CONF="/conf"
+SHARED="/shared"
+HOSTS_CONF="${CONF}/hosts.conf"
+MESOS_NAME_CONF="${CONF}/mesos_name.conf"
+MESOS_ZOO_CONF="${CONF}/mesos_zoo.conf"
+MESOS_QUORUM_CONF="${CONF}/mesos_quorum.conf"
+SPARK_IMAGE_TAR="${SHARED}/${SPARK_IMAGE_TAR}"
+
+if [ ! -f "${SPARK_IMAGE_TAR}" ]; then
+	err "${SPARK_IMAGE_TAR} does not exist or is not a file!"
+	exit 3
+fi
 
 # local configuration paths
 LOCAL_MESOS_ETC="/etc/mesos"
@@ -69,16 +85,8 @@ else
 	exit 1
 fi
 
-if [ ! -f "${SPARK_IMAGE_TAR}" ]; then
-	out "Pulling ${SPARK_IMAGE}"
-#	docker pull "${SPARK_IMAGE}" >/dev/null
-	out "Storing ${SPARK_IMAGE} to ${SPARK_IMAGE_TAR}"
-#	docker save -o "${SPARK_IMAGE_TAR}" "${SPARK_IMAGE}"
-else 
-	out "Loading ${SPARK_IMAGE} from ${SPARK_IMAGE_TAR}"
-#	docker load -i "${SPARK_IMAGE_TAR}"
-fi
-
+out "Importing spark image..."
+docker import "${SPARK_IMAGE_TAR}" "${SPARK_IMAGE}"
 
 # set ready flag
 echo "1" > "/tmp/node.ready"

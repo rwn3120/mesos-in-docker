@@ -1,5 +1,6 @@
 *.tgz
 *.tar.gz
+*.tar
 *.jar
 *.zip
 conf/*/*

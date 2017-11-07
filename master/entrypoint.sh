@@ -3,12 +3,20 @@
 function out() { echo -e "\e[32m${@}\e[39m"; }
 function err() { echo -e "\e[31m${@}\e[39m" 1>&2; }
 
+case "${1}" in
+	"--spark-version") echo "${SPARK_VERSION}"; exit 0;;
+        "--hadoop-version") echo "${HADOOP_VERSION}"; exit 0;;
+	"--mesos-version") mesos-master --version; exit 0;;
+	*) ;;
+esac
+
 # shared files
-HOSTS_CONF="/shared/hosts.conf"
-MESOS_NAME_CONF="/shared/mesos_name.conf"
-MESOS_ZOO_CONF="/shared/mesos_zoo.conf"
-MARATHON_ZOO_CONF="/shared/marathon_zoo.conf"
-MESOS_QUORUM_CONF="/shared/mesos_quorum.conf"
+CONF="/conf"
+HOSTS_CONF="${CONF}/hosts.conf"
+MESOS_NAME_CONF="${CONF}/mesos_name.conf"
+MESOS_ZOO_CONF="${CONF}/mesos_zoo.conf"
+MARATHON_ZOO_CONF="${CONF}/marathon_zoo.conf"
+MESOS_QUORUM_CONF="${CONF}/mesos_quorum.conf"
 
 # local configuration paths
 LOCAL_MESOS_ETC="/etc/mesos"
@@ -107,7 +115,9 @@ if [[ "$(hostname)" == *"master1"* ]]; then
 	out "Starting spark..."
 	export STDOUT_SPARK="${MESOS_LOG_DIR}/spark.$(hostname).stdout"
 	export STDERR_SPARK="${MESOS_LOG_DIR}/spark.$(hostname).stderr"
-	/opt/spark/sbin/start-mesos-dispatcher.sh --master "mesos://$(hostname):5050" 1>"${STDOUT_SPARK}" 2>"${STDERR_SPARK}"
+	"${SPARK_HOME}/sbin/start-mesos-dispatcher.sh" --master "mesos://$(hostname):5050" 1>"${STDOUT_SPARK}" 2>"${STDERR_SPARK}"
+	export SPARK_PID=$!
+	out "... running [${SPARK_PID}]"
 fi
 
 

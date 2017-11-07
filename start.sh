@@ -83,13 +83,21 @@ while getopts ":yYh" opt; do
 done
 shift $((OPTIND -1))
 
+dbg "Initializing...\n"
 # get path to configuration file
+SHARED="${SCRIPT_DIR}/shared"
 CONF="${SCRIPT_DIR}/conf"
-SPARK="${SCRIPT_DIR}/spark"
 
 # Path to cluster configuration file
 CLUSTER_FILE="${1}"
 CLUSTER_FILE=${CLUSTER_FILE:="${CONF}/cluster.conf"}
+
+# check if config exists
+if [ ! -f "${CLUSTER_FILE}" ]; then
+        finalize 1 "${CLUSTER_FILE} does not exist or is not a file!"
+else 
+        CLUSTER_FILE=$(readlink -f "${CLUSTER_FILE}")
+fi
 
 # Container JSON fields
 NAME_KEY="name"
@@ -102,20 +110,52 @@ MASTERS_KEY="masters" SLAVES_KEY="slaves"
 ZOO_KEY="zoo" ZOO_NODES_KEY="nodes" ZOO_PEER_PORT_KEY="peer_port" ZOO_LEADER_PORT_KEY="leader_port"
 
 # images
-MESOS_IMAGE="mesos-in-docker"
+MESOS_IMAGE="radowan/mesos-in-docker"
 ZOOKEEPER_IMAGE="${MESOS_IMAGE}:zookeeper-latest"
 MESOS_MASTER_IMAGE="${MESOS_IMAGE}:master-latest"
 MESOS_SLAVE_IMAGE="${MESOS_IMAGE}:slave-latest"
+MESOS_VERSION=$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --mesos-version | tr -d "\n\r" | tr -d "\n")
+HADOOP_VERSION="$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --hadoop-version | tr -d "\n\r" | tr -d "\n")"
+SPARK_VERSION="$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --spark-version | tr -d "\n\r" | tr -d  "\n")"
+SPARK_IMAGE="mesosphere/spark:2.0.1-${SPARK_VERSION}-1-hadoop-${HADOOP_VERSION}"
+SPARK_IMAGE_TAR="${SHARED}/spark-${SPARK_VERSION}-hadoop-${HADOOP_VERSION}.image.tar"
 
 # default mount points
-MOUNT_POINTS_OPT="-v \"${CONF}:/shared\""
+MOUNT_POINTS_OPT="-v \"${CONF}:/conf\" -v \"${SHARED}:/shared:ro\""
+ENVIRONMENT_OPT="-e \"SPARK_IMAGE=${SPARK_IMAGE}\" -e \"SPARK_IMAGE_TAR=$(basename "${SPARK_IMAGE_TAR}")\""
 
-# check if config exists
-if [ ! -f "${CLUSTER_FILE}" ]; then
-	finalize 1 "${CLUSTER_FILE} does not exist or is not a file!"
-else 
-	CLUSTER_FILE=$(readlink -f "${CLUSTER_FILE}")
+# pull spark image
+out "Cluster setup:
+\t- Mesos ${MESOS_VERSION}
+\t- Apache Spark ${SPARK_VERSION} 
+\t- Hadoop ${HADOOP_VERSION}\n"
+
+set +e  
+docker image inspect "${SPARK_IMAGE}" &> /dev/null
+RC=$?
+set -e
+if [ $RC -ne 0 ]; then
+	out "Please wait..."
+	out "... pulling ${SPARK_IMAGE}"
+	docker pull "${SPARK_IMAGE}" >/dev/null
+	out "... storing ${SPARK_IMAGE} to ${SPARK_IMAGE_TAR}"
+	docker save "${SPARK_IMAGE}" > "${SPARK_IMAGE_TAR}"
 fi
+if [ ! -e "${SPARK_IMAGE_TAR}" ]; then
+	out "Please wait..."        
+	out "... storing ${SPARK_IMAGE} to ${SPARK_IMAGE_TAR}"
+	docker save "${SPARK_IMAGE}" > "${SPARK_IMAGE_TAR}"
+fi
+
+# Container JSON fields
+NAME_KEY="name"
+IMAGE_KEY="image" HOST_KEY="hostname" IP_KEY="ip"
+# Network JSON fields
+KEYS_KEY="keys" NETWORK_KEY="network" GATEWAY_KEY="gateway" SUBNET_KEY="subnet" DRIVER_KEY="driver" SCOPE_KEY="scope"
+# Mesos JSON fields
+MASTERS_KEY="masters" SLAVES_KEY="slaves"
+# Zookeeper JSON fileds
+ZOO_KEY="zoo" ZOO_NODES_KEY="nodes" ZOO_PEER_PORT_KEY="peer_port" ZOO_LEADER_PORT_KEY="leader_port"
 
 out "Parsing ${CLUSTER_FILE}"
 CLUSTER_JSON=$(cat "${CLUSTER_FILE}" | sed 's/#.*//')
@@ -216,9 +256,9 @@ out "Searching for conflicts..."
 RUNNING_CONTAINERS=()
 for containerJson in "${CONTAINERS[@]}"; do
         HOST=$(jsonParse "${containerJson}" ".${HOST_KEY}")
-        set +e  
+        set +e 
         docker container inspect "${HOST}" &> /dev/null
-        RC=$?
+	RC=$?
         set -e
         if [ $RC -eq 0 ]; then 
                 RUNNING_CONTAINERS+=("${HOST}"); 
@@ -256,19 +296,24 @@ docker network create --gateway="${GATEWAY}" --subnet="${SUBNET}" "${NETWORK}" >
 # Start cluster
 out "Starting cluster..."
 # default mount points
-MOUNT_POINTS_OPT="-v \"${CLUSTER_CONF}:/shared\""
+MOUNT_POINTS_OPT="-v \"${CLUSTER_CONF}:/conf\" -v \"${SHARED}:/shared:ro\""
+ENVIRONMENT_OPT="-e \"SPARK_IMAGE=${SPARK_IMAGE}\" -e \"SPARK_IMAGE_TAR=$(basename "${SPARK_IMAGE_TAR}")\""
 for containerJson in "${CONTAINERS[@]}"; do
 	IMAGE=$(jsonParse "${containerJson}" ".${IMAGE_KEY}")
 	HOST=$(jsonParse "${containerJson}" ".${HOST_KEY}")
 	IP=$(jsonParse "${containerJson}" ".${IP_KEY}")
 	PRIVILEGED=$(jsonParse "${containerJson}" ".${PRIVILEGED_KEY}")
-        cmd="docker run -td ${PRIVILEGED} -P ${MOUNT_POINTS_OPT} --net=\"${NETWORK}\" --ip=\"${IP}\" --name \"${HOST}\" --hostname \"${HOST}\" \"${IMAGE}\""
+        cmd="docker run --rm -td ${PRIVILEGED} -P ${ENVIRONMENT_OPT} ${MOUNT_POINTS_OPT} --net=\"${NETWORK}\" --ip=\"${IP}\" --name \"${HOST}\" --hostname \"${HOST}\" \"${IMAGE}\""
         dbg "${cmd}"
 	echo -n "... node ${HOST} "
         eval ${cmd} >> /dev/null
         checkError $? "Could not start container ${HOST}!"
 	until docker exec "${HOST}" ls /tmp/node.ready &>/dev/null; do
-        	echo -n ".";
+        	docker ps | grep "${HOST}" >/dev/null
+		if [ $? -ne 0 ]; then
+			failure 14 "Container ${HOST} died!"
+		fi
+		echo -n ".";
 	        sleep 0.250
 	done
 	echo ".. started"

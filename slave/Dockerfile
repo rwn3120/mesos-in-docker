@@ -1,10 +1,13 @@
-FROM mesos-in-docker:master-latest
+FROM radowan/mesos-in-docker:base-latest
 LABEL maintainer="radowan <radek.strejc@gmail.com>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-# expose ports
-EXPOSE 80 8080 8888 443 2000 2001 2002 3000 4000 4040 5050 5051 8000 9000
+# install docker
+RUN wget -qO- https://get.docker.io/gpg | apt-key add -
+RUN sh -c "echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list"
+RUN apt-get -y update
+RUN curl -sSL https://get.docker.com/ | sh
 
 # entry point
 ADD "entrypoint.sh" "/usr/local/bin/entrypoint.sh"

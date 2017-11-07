@@ -1,7 +1,8 @@
 #!/bin/bash -e
 
-HOSTS_CONF="/shared/hosts.conf"
-ZOO_CONF="/shared/zoo.conf"
+CONF="/conf"
+HOSTS_CONF="${CONF}/hosts.conf"
+ZOO_CONF="${CONF}/zoo.conf"
 
 # local hosts configuration
 LOCAL_HOSTS_CONF="/etc/hosts"
@@ -11,7 +12,7 @@ LOCAL_ZOO_ID_CONF="${LOCAL_ZOO_CONF_DIR}/myid"
 LOCAL_ZOO_SERVICE_CONF="${LOCAL_ZOO_CONF_DIR}/zoo.cfg"
 
 # Output server ID
-ZOOKEEPER_ID=$(grep "$(hostname)" /shared/zoo.conf | sed 's/=.*//; s/.*\.//')
+ZOOKEEPER_ID=$(grep "$(hostname)" "${ZOO_CONF}" | sed 's/=.*//; s/.*\.//')
 echo "Zookeeper ID: ${ZOOKEEPER_ID}"
 echo "${ZOOKEEPER_ID}" > "${LOCAL_ZOO_ID_CONF}"
 
