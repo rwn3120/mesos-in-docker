@@ -1,0 +1,23 @@
+{
+  "action": "CreateSubmissionRequest",
+  "appArgs": [],
+  "appResource": "http://downloads.mesosphere.com.s3.amazonaws.com/assets/spark/spark-examples_2.10-1.5.0.jar",
+  "clientSparkVersion": "2.0.0",
+  "environmentVariables": {},
+  "mainClass": "org.apache.spark.examples.SparkPi",
+  "sparkProperties": {
+    "spark.app.name": "org.apache.spark.examples.SparkPi",
+    "spark.driver.cores": "1",
+    "spark.driver.memory": "512M",
+    "spark.executor.memory": "512M",
+    "spark.cores.max": "2",
+    "spark.jars": "http://downloads.mesosphere.com.s3.amazonaws.com/assets/spark/spark-examples_2.10-1.5.0.jar",
+    "spark.master": "mesos://master1.cluster1.net",
+    "spark.mesos.driver.labels": "DCOS_SPACE:/spark",
+    "spark.mesos.executor.docker.forcePullImage": "true",
+    "spark.mesos.executor.docker.image": "mesosphere/spark:2.0.1-2.2.0-1-hadoop-2.6",
+    "spark.ssl.noCertVerification": "true",
+    "spark.submit.deployMode": "cluster"
+  }
+}
+
