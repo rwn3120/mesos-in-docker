@@ -83,7 +83,6 @@ while getopts ":yYh" opt; do
 done
 shift $((OPTIND -1))
 
-dbg "Initializing...\n"
 # get path to configuration file
 SHARED="${SCRIPT_DIR}/shared"
 CONF="${SCRIPT_DIR}/conf"
@@ -114,6 +113,20 @@ MESOS_IMAGE="radowan/mesos-in-docker"
 ZOOKEEPER_IMAGE="${MESOS_IMAGE}:zookeeper-latest"
 MESOS_MASTER_IMAGE="${MESOS_IMAGE}:master-latest"
 MESOS_SLAVE_IMAGE="${MESOS_IMAGE}:slave-latest"
+out "Initializing, please wait..."
+for image in "${MESOS_MASTER_IMAGE}" "${MESOS_SLAVE_IMAGE}" "${ZOOKEEPER_IMAGE}"; do
+	set +e 
+	docker image inspect "${image}" &>/dev/null
+	RC=$?
+	set -e
+	if [ $RC -ne 0 ] || [ "${FORCE_PULL}" == "true" ]; then
+		out "... pulling ${image}"
+		docker pull "${image}" >/dev/null
+	else
+		out "... ${image} is already downloaded"
+	fi
+done
+
 MESOS_VERSION=$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --mesos-version | tr -d "\n\r" | tr -d "\n")
 HADOOP_VERSION="$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --hadoop-version | tr -d "\n\r" | tr -d "\n")"
 SPARK_VERSION="$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --spark-version | tr -d "\n\r" | tr -d  "\n")"
@@ -125,7 +138,7 @@ MOUNT_POINTS_OPT="-v \"${CONF}:/conf\" -v \"${SHARED}:/shared:ro\""
 ENVIRONMENT_OPT="-e \"SPARK_IMAGE=${SPARK_IMAGE}\" -e \"SPARK_IMAGE_TAR=$(basename "${SPARK_IMAGE_TAR}")\""
 
 # pull spark image
-out "Cluster setup:
+inf "\nCluster setup:
 \t- Mesos ${MESOS_VERSION}
 \t- Apache Spark ${SPARK_VERSION} 
 \t- Hadoop ${HADOOP_VERSION}\n"
@@ -134,17 +147,21 @@ set +e
 docker image inspect "${SPARK_IMAGE}" &> /dev/null
 RC=$?
 set -e
-if [ $RC -ne 0 ]; then
-	out "Please wait..."
+if [ $RC -ne 0 ] || [ "${FORCE_PULL}" == "true" ]; then
+	out "Preparing data for slaves, please wait..."
 	out "... pulling ${SPARK_IMAGE}"
 	docker pull "${SPARK_IMAGE}" >/dev/null
 	out "... storing ${SPARK_IMAGE} to ${SPARK_IMAGE_TAR}"
 	docker save "${SPARK_IMAGE}" > "${SPARK_IMAGE_TAR}"
 fi
 if [ ! -e "${SPARK_IMAGE_TAR}" ]; then
-	out "Please wait..."        
+	out "Preparing data for slaves, please wait..."
 	out "... storing ${SPARK_IMAGE} to ${SPARK_IMAGE_TAR}"
 	docker save "${SPARK_IMAGE}" > "${SPARK_IMAGE_TAR}"
+fi
+
+if [ "${FORCE_PULL}" != "true" ]; then
+        dbg "\nTo enforce pulling the latest images, use:\n\n\texport FORCE_PULL=true\n"
 fi
 
 # Container JSON fields
@@ -157,7 +174,7 @@ MASTERS_KEY="masters" SLAVES_KEY="slaves"
 # Zookeeper JSON fileds
 ZOO_KEY="zoo" ZOO_NODES_KEY="nodes" ZOO_PEER_PORT_KEY="peer_port" ZOO_LEADER_PORT_KEY="leader_port"
 
-out "Parsing ${CLUSTER_FILE}"
+out "Parsing ${CLUSTER_FILE}\n"
 CLUSTER_JSON=$(cat "${CLUSTER_FILE}" | sed 's/#.*//')
 CLUSTER=$(jsonParse "${CLUSTER_JSON}" ".${NAME_KEY}")
 out "Reading ${CLUSTER} configuration"
@@ -321,8 +338,17 @@ done
 
 REPLY=$(promptYesNo wrn "Super-user action required: /etc/hosts file must be edited to access cluster ${CLUSTER} from your local browser. Continue?")
 if [[ $REPLY =~ ^[Yy]$ ]] || [ "${REPLY}" == "" ]; then
-	sudo sed -i "/${NETWORK}/d" /etc/hosts 
-	cat "${HOSTS_CONF}" | sudo tee --append /etc/hosts > /dev/null
+	set +e 
+        groups | grep -E "(sudo|root)" >/dev/null
+        RC=$?
+        set -e
+	if [ $RC -eq 0 ]; then
+		sudo sed -i "/${NETWORK}/d" /etc/hosts
+	        cat "${HOSTS_CONF}" | sudo tee --append /etc/hosts > /dev/null
+	else
+		wrn "It seems you don't have privileges to edit /etc/hosts file. Please add following lines to /etc/hosts manually"
+		cat "${HOSTS_CONF}"
+	fi	
 fi
 
 out "Done"
