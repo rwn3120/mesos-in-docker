@@ -1,8 +1,4 @@
 #!/bin/bash -e 
-SCRIPT=$(readlink -f "${0}")
-SCRIPT_BASENAME=$(basename "${SCRIPT}")
-SCRIPT_NAME=$(echo "${SCRIPT_BASENAME}" | sed 's/\\..*//')
-SCRIPT_DIR=$(dirname "${SCRIPT}")
 
 function out() { echo -e "\e[32m${@}\e[39m"; }
 function inf() { echo -e "\e[97m${@}\e[39m"; }
