@@ -8,7 +8,7 @@ function out() { echo -e "\e[32m${@}\e[39m"; }
 function inf() { echo -e "\e[97m${@}\e[39m"; }
 function err() { echo -e "\e[31m${@}\e[39m" 1>&2; }
 function wrn() { echo -e "\e[33m${@}\e[39m" 1>&2; }
-function dbg() { echo -e "\e[34m${@}\e[39m"; }
+function dbg() { if [ "${DBG}" == "true" ]; then echo -e "\e[34m${@}\e[39m"; fi }
 
 function finalize() {
 	if [ $# -gt 1 ]; then
