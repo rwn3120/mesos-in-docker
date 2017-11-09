@@ -62,7 +62,7 @@ function usage() {
 	finalize \
 "${SCRIPT_NAME} - utility to run mesos cluster(s) on your local
 
-Example:
+Usage:
 \t${SCRIPT_BASENAME} [-y] [conf]
 Options:
 \t-y\t...auto response Yes on every prompt
@@ -92,6 +92,19 @@ shift $((OPTIND -1))
 SHARED="${SCRIPT_DIR}/shared"
 CONF="${SCRIPT_DIR}/conf"
 
+#set +e  
+#mount | grep "${SHARED}" >/dev/null
+#if [ $? -ne 0 ]; then
+#	groups | grep -E "(sudo|root)" >/dev/null
+#        if [ $? -eq 0 ]; then
+#		REPLY=$(promptYesNo wrn "Mount tmpfs to ${SHARED} ?")
+#	        if [[ $REPLY =~ ^[Yy]$ ]] || [ "${REPLY}" == "" ]; then
+#			sudo mount -t tmpfs -o "size=1512M,mode=0777,user" tmpfs "${SHARED}"
+#		fi
+#	fi
+#fi
+#set -e
+
 # Path to cluster configuration file
 CLUSTER_FILE="${1}"
 CLUSTER_FILE=${CLUSTER_FILE:="${CONF}/cluster.conf"}
@@ -114,10 +127,10 @@ MASTERS_KEY="masters" SLAVES_KEY="slaves"
 ZOO_KEY="zoo" ZOO_NODES_KEY="nodes" ZOO_PEER_PORT_KEY="peer_port" ZOO_LEADER_PORT_KEY="leader_port"
 
 # images
-MESOS_IMAGE="radowan/mesos-in-docker"
-ZOOKEEPER_IMAGE="${MESOS_IMAGE}:zookeeper-latest"
-MESOS_MASTER_IMAGE="${MESOS_IMAGE}:master-latest"
-MESOS_SLAVE_IMAGE="${MESOS_IMAGE}:slave-latest"
+MESOS_IMAGE="${REPO}/${NAME}"
+ZOOKEEPER_IMAGE="${MESOS_IMAGE}:zookeeper"
+MESOS_MASTER_IMAGE="${MESOS_IMAGE}:master"
+MESOS_SLAVE_IMAGE="${MESOS_IMAGE}:slave"
 out "Initializing, please wait..."
 for image in "${MESOS_MASTER_IMAGE}" "${MESOS_SLAVE_IMAGE}" "${ZOOKEEPER_IMAGE}"; do
 	set +e 
@@ -135,7 +148,7 @@ done
 MESOS_VERSION=$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --mesos-version | tr -d "\n\r" | tr -d "\n")
 HADOOP_VERSION="$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --hadoop-version | tr -d "\n\r" | tr -d "\n")"
 SPARK_VERSION="$(docker run --rm -t "${MESOS_MASTER_IMAGE}" --spark-version | tr -d "\n\r" | tr -d  "\n")"
-SPARK_IMAGE="mesosphere/spark:2.0.1-${SPARK_VERSION}-1-hadoop-${HADOOP_VERSION}"
+SPARK_IMAGE=$(getId "${SPARK_IMAGE_TAG}")
 SPARK_IMAGE_TAR="${SHARED}/spark-${SPARK_VERSION}-hadoop-${HADOOP_VERSION}.image.tar"
 
 # default mount points
@@ -327,18 +340,18 @@ for containerJson in "${CONTAINERS[@]}"; do
 	PRIVILEGED=$(jsonParse "${containerJson}" ".${PRIVILEGED_KEY}")
         cmd="docker run --rm -td ${PRIVILEGED} -P ${ENVIRONMENT_OPT} ${MOUNT_POINTS_OPT} --net=\"${NETWORK}\" --ip=\"${IP}\" --name \"${HOST}\" --hostname \"${HOST}\" \"${IMAGE}\""
         dbg "${cmd}"
-	echo -n "... node ${HOST} "
+	echo -n "... node ${HOST} ..."
         eval ${cmd} >> /dev/null
         checkError $? "Could not start container ${HOST}!"
 	until docker exec "${HOST}" ls /tmp/node.ready &>/dev/null; do
-        	docker ps | grep "${HOST}" >/dev/null
+		docker ps | grep "${HOST}" >/dev/null
+		echo -n "."
 		if [ $? -ne 0 ]; then
 			failure 14 "Container ${HOST} died!"
 		fi
-		echo -n ".";
-	        sleep 0.250
+	        sleep 2
 	done
-	echo ".. started"
+	out " ready"
 done
 
 REPLY=$(promptYesNo wrn "Super-user action required: /etc/hosts file must be edited to access cluster ${CLUSTER} from your local browser. Continue?")

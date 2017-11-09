@@ -1,7 +1,16 @@
-FROM radowan/mesos-in-docker:base-latest
+FROM radowan/mesos-in-docker:base
 LABEL maintainer="radowan <radek.strejc@gmail.com>"
 
+# arguments
 ARG DEBIAN_FRONTEND=noninteractive
+ARG SPARK_VERSION
+ARG HADOOP_VERSION
+ARG SPARK_IMAGE
+
+# environment variables
+ENV SPARK_VERSION="${SPARK_VERSION}"
+ENV HADOOP_VERSION="${HADOOP_VERSION}"
+ENV SPARK_IMAGE="${SPARK_IMAGE}"
 
 # install docker
 RUN wget -qO- https://get.docker.io/gpg | apt-key add -

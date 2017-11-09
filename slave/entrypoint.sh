@@ -74,8 +74,9 @@ export MESOS_LOG_DIR="/var/log/mesos"
 export MESOS_WORK_DIR=$( cat "${LOCAL_MESOS_SLAVE_ETC}/work_dir")
 export MESOS_SLAVE_STDOUT="${MESOS_LOG_DIR}/$(hostname).stdout"
 export MESOS_SLAVE_STDERR="${MESOS_LOG_DIR}/$(hostname).stderr"
-export MESOS_ISOLATION="cgroups/cpu,cgroups/mem,cgroups/pids,namespaces/pid,filesystem/shared,filesystem/linux,volume/sandbox_path"
-export MESOS_LAUNCHER="linux"
+#export MESOS_ISOLATION="cgroups/cpu,cgroups/mem,cgroups/pids,namespaces/pid,filesystem/shared,filesystem/linux,volume/sandbox_path"
+export MESOS_ISOLATION="cgroups/cpu,cgroups/mem,cgroups/pids,filesystem/shared,filesystem/linux,volume/sandbox_path"
+export MESOS_LAUNCHER="posix" #"linux"
 mesos-slave --no-systemd_enable_support  --containerizers="mesos,docker" 1>"${MESOS_SLAVE_STDOUT}" 2>"${MESOS_SLAVE_STDERR}" &
 export MESOS_SLAVE_PID=$!
 if $(sleep 0.25 && ps -p "${MESOS_SLAVE_PID}" > /dev/null); then
@@ -86,7 +87,8 @@ else
 fi
 
 out "Importing spark image..."
-docker import "${SPARK_IMAGE_TAR}" "${SPARK_IMAGE}"
+#docker import "${SPARK_IMAGE_TAR}" "${SPARK_IMAGE}"
+docker load < "${SPARK_IMAGE_TAR}"
 
 # set ready flag
 echo "1" > "/tmp/node.ready"

@@ -1,5 +1,16 @@
 #!/bin/bash -e 
 
+REPO="radowan"
+NAME="mesos-in-docker"
+
+function getId() {
+        echo "${REPO}/${NAME}:${1}"
+}
+
+SPARK_VERSION="2.2.0"
+HADOOP_VERSION="2.6"
+SPARK_IMAGE_TAG="spark-${SPARK_VERSION}-hadoop-${HADOOP_VERSION}"
+
 function out() { echo -e "\e[32m${@}\e[39m"; }
 function inf() { echo -e "\e[97m${@}\e[39m"; }
 function err() { echo -e "\e[31m${@}\e[39m" 1>&2; }

@@ -15,7 +15,7 @@
     "spark.master": "mesos://master1.cluster1.net",
     "spark.mesos.driver.labels": "DCOS_SPACE:/spark",
     "spark.mesos.executor.docker.forcePullImage": "true",
-    "spark.mesos.executor.docker.image": "mesosphere/spark:2.0.1-2.2.0-1-hadoop-2.6",
+    "spark.mesos.executor.docker.image": "radowan/mesos-in-docker:spark-2.2.0-hadoop-2.6",
     "spark.ssl.noCertVerification": "true",
     "spark.submit.deployMode": "cluster"
   }

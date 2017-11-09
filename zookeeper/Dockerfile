@@ -1,18 +1,16 @@
 FROM debian:jessie
 LABEL maintainer="radowan <radek.strejc@gmail.com>"
 
+# default arguments
 ARG DEBIAN_FRONTEND=noninteractive
 
 # retrieve new lists of packages
 RUN apt-get update
 
-# install utils
+# install utils & zookeeper
 RUN apt-get install -y \
-        vim mc
-
-# install zookeeper
-RUN apt-get install -y \
-        zookeeper zookeeperd zookeeper-bin
+        vim-tiny curl \
+	zookeeper zookeeperd zookeeper-bin
 
 # expose zookeeper's ports
 EXPOSE 2181 2888 3888
